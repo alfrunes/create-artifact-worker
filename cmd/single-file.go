@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -107,7 +108,7 @@ type SingleFileCmd struct {
 
 	ArtifactName   string
 	Description    string
-	DeviceType     string
+	DeviceTypes    []string
 	ArtifactId     string
 	GetArtifactUri string
 	DelArtifactUri string
@@ -149,7 +150,7 @@ func (c *SingleFileCmd) init(cmd *cobra.Command) error {
 	}
 
 	arg, err = cmd.Flags().GetString(argDeviceType)
-	c.DeviceType = arg
+	c.DeviceTypes = strings.Split(arg, ",")
 	if err != nil {
 		return err
 	}
@@ -256,14 +257,19 @@ func (c *SingleFileCmd) Run() error {
 
 	mlog.Verbose("generating output artifact %s", outfile)
 
+	args := []string{
+		"-n", c.ArtifactName,
+		"-d", c.DestDir,
+		"-o", outfile,
+	}
+	for _, devType := range c.DeviceTypes {
+		args = append(args, "-t", devType)
+	}
+	args = append(args, downloadFile)
 	// run gen script
 	cmd := exec.Command(
 		"/usr/bin/single-file-artifact-gen",
-		"-n", c.ArtifactName,
-		"-t", c.DeviceType,
-		"-d", c.DestDir,
-		"-o", outfile,
-		downloadFile,
+		args...,
 	)
 
 	std, err := cmd.CombinedOutput()
@@ -297,7 +303,7 @@ func (c *SingleFileCmd) dumpArgs() string {
 	return dumpArg(argArtifactName, c.ArtifactName) +
 		dumpArg(argDescription, c.Description) +
 		dumpArg(argArtifactId, c.ArtifactId) +
-		dumpArg(argDeviceType, c.DeviceType) +
+		dumpArg(argDeviceType, strings.Join(c.DeviceTypes, ",")) +
 		dumpArg(argTenantId, c.TenantId) +
 		dumpArg(argGetArtifactUri, c.GetArtifactUri) +
 		dumpArg(argDelArtifactUri, c.DelArtifactUri) +
